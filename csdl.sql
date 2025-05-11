@@ -6,6 +6,14 @@ GO
 USE UserOrderDB;
 GO
 
+-- Tạo bảng Auth mới có thêm Username (tên tài khoản đăng nhập)
+CREATE TABLE Auth (
+    UserID INT PRIMARY KEY,  -- Cũng là khóa ngoại
+    Username NVARCHAR(100) NOT NULL UNIQUE,
+    PasswordHash NVARCHAR(255) NOT NULL,
+    FOREIGN KEY (UserID) REFERENCES Users(UserID)
+);
+
 -- Tạo bảng Users
 CREATE TABLE Users (
     UserID INT PRIMARY KEY IDENTITY(1,1),
@@ -24,22 +32,24 @@ CREATE TABLE Orders (
     OrderDate DATETIME DEFAULT GETDATE(),
     FOREIGN KEY (UserID) REFERENCES Users(UserID)
 );
-GO
 
--- Thêm dữ liệu mẫu vào Users
-INSERT INTO Users (FullName, Email)
+ALTER TABLE Users ADD Role NVARCHAR(20) NOT NULL DEFAULT 'User'
+-- Thêm dữ liệu vào bảng Users
+INSERT INTO Users (FullName, Email, Role)
 VALUES 
-(N'Nguyễn Văn A', 'a@gmail.com'),
-(N'Trần Thị B', 'b@yahoo.com'),
-(N'Lê Văn C', 'c@hotmail.com');
+(N'Nguyễn Văn A', 'a@gmail.com', 'Admin'),  -- Người dùng Admin
+(N'Trần Thị B', 'b@yahoo.com', 'User'),    -- Người dùng bình thường
+(N'Lê Văn C', 'c@hotmail.com', 'User');     -- Người dùng bình thường
 GO
-
--- Thêm dữ liệu mẫu vào Orders
+-- Thêm dữ liệu vào bảng Orders 
 INSERT INTO Orders (UserID, ProductName, Quantity)
 VALUES
-(1, N'Chuột Logitech', 2),
-(1, N'Bàn phím cơ', 1),
-(2, N'Màn hình Samsung 24"', 1),
-(3, N'Tai nghe Sony', 3);
+(23, N'Chuột Logitech', 2),  -- Đơn hàng của Nguyễn Văn A
+(23, N'Bàn phím cơ', 1),     -- Đơn hàng của Nguyễn Văn A
+(9, N'Màn hình Samsung 24"', 1),  -- Đơn hàng của Trần Thị B
+(10, N'Tai nghe Sony', 3);   -- Đơn hàng của Lê Văn C
 GO
-SELECT * From Orders
+
+SELECT * FROM Users
+SELECT * FROM Orders
+SELECT * FROM Auth
