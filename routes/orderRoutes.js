@@ -12,8 +12,8 @@ const {
 
 router.get('/',authenticateToken,  orderControllers.getAllOrders);
 router.get('/:OrderID', authenticateToken, validatorOrderID, handleValidation, orderControllers.getOrderByOrderID);
-router.post('/:UserID', authenticateToken, validatorAddOrder, handleValidation, orderControllers.addOrders);
-router.put('/:OrderID', authenticateToken, validatorUpdateOrder, handleValidation, orderControllers.updateOrder);
+router.post('/', authenticateToken, orderControllers.addOrders);
+router.put('/:OrderID', authenticateToken, orderControllers.updateOrder);
 router.delete('/:OrderID', authenticateToken, validatorOrderID, handleValidation, orderControllers.deleteOrder);
  
 module.exports = router;

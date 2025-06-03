@@ -9,8 +9,7 @@ const hashPassword = async (req, res, next) => {
 
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(Password, salt);
-        req.body.passwordHash = hashedPassword;
-
+        req.body.PasswordHash = hashedPassword;
         next();
     } catch (err) {
         res.status(500).json({ message: "Lỗi khi mã hóa mật khẩu", error: err.message });

@@ -34,44 +34,55 @@ async function loginService({Username, Password}) {
         Role: user.Role
     };
 }
-async function registerService({Username, FullName, Email, Password, Role = "User" }, currentUser){
-        if (currentUser && currentUser.Role !== "Admin") {
-            throw { status: 403, message: "chỉ admin mới được tạo tài khoản!!" };
-        }
+async function registerService({Username, FullName, Email, PasswordHash, Role = "User" }, currentUser){
+    
+    
+    if (currentUser && currentUser.Role !== "Admin") {
+        throw { status: 403, message: "chỉ admin mới được tạo tài khoản!!" };
+    }
 
-        const check = await sql.query`SELECT * FROM Auth WHERE Username = ${Username}`;
-        if (check.recordset.length > 0) {
-            throw { status: 400, message: "Username đã tồn tại" };
-        }
+    const check = await sql.query`SELECT * FROM Auth WHERE Username = ${Username}`;
+    if (check.recordset.length > 0) {
+        throw { status: 400, message: "Username đã tồn tại" };
+    }
 
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(Password, salt);
-
-        const result = await sql.query`
-            INSERT INTO Users (FullName, Email, Role)
-            OUTPUT INSERTED.UserID
-            VALUES (${FullName}, ${Email}, ${Role})
-        `;
-        const UserID = result.recordset[0].UserID;
-        await sql.query`
-            INSERT INTO Auth (UserID, Username, PasswordHash)
-            VALUES (${UserID}, ${Username}, ${passwordHash})
-        `;
-        if (currentUser && currentUser.user.Role === "Admin") {
-            return {
-                message: "Admin đã tạo tài khoản thành công",
-                newUser: {
-                    UserID,
-                    Username,
-                    FullName,
-                    Email,
-                    Role
-                }
-            };
-        }
-        return { message: "Đăng ký thành công" };
+    const result = await sql.query`
+        INSERT INTO Users (FullName, Email, Role)
+        OUTPUT INSERTED.UserID
+        VALUES (${FullName}, ${Email}, ${Role})
+    `;
+    const UserID = result.recordset[0].UserID;
+    await sql.query`
+        INSERT INTO Auth (UserID, Username, PasswordHash)
+        VALUES (${UserID}, ${Username}, ${PasswordHash})
+    `;
+    
+    if (currentUser && currentUser.user.Role === "Admin") {
+        return {
+            message: "Admin đã tạo tài khoản thành công",
+            newUser: {
+                UserID,
+                Username,
+                FullName,
+                Email,
+                Role
+            }
+        };
+    }
+    return { message: "Đăng ký thành công" };
+}
+async function resetPasswordService(Email, PasswordHash) {
+    const result = await sql.query`
+        UPDATE Auth
+        SET PasswordHash = ${PasswordHash}
+        WHERE UserID = (
+            SELECT UserID FROM Users WHERE Email = ${Email}
+        )
+    `;
+    return result;
 }
 module.exports = {
     loginService,
-    registerService
+    registerService,
+    resetPasswordService
 }
