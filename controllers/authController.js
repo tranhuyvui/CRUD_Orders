@@ -33,8 +33,17 @@ async function resetPassword(req, res) {
         res.status(err.status || 500).json({ message: err.message });
     }
 }
+async function logOut(req, res) {
+    try {
+        req.user = null;
+        return res.status(200).send("Đăng xuất thành công");
+    } catch (err) {
+        res.status(500).json({ err });
+    }
+}
 module.exports = {
     login,
     register,
-    resetPassword
+    resetPassword,
+    logOut
 };

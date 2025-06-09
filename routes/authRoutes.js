@@ -9,13 +9,11 @@ const handleValidation = require('../middlewares/handleValidation');
 
 
 authRouter.post('/login', validatorLogin, handleValidation, authController.login, authenticateToken);
-
+authRouter.get('/logout', authController.logOut);
 authRouter.post('/register/sendotp', otpController.sendOtpRegisterController);
-authRouter.post('/register/verify', hashPassword, authController.register);
-//validatorRegister, handleValidation
+authRouter.post('/register/verify', validatorRegister, handleValidation, hashPassword, authController.register);
 
 authRouter.post('/forgot-password/sendotp', otpController.sendOtpForgotController); 
-authRouter.post('/forgot-password/reset', otpController.verifyOtpController, hashPassword, authController.resetPassword);
-//validatorRegister, handleValidation
+authRouter.post('/forgot-password/verify', validatorRegister, handleValidation, otpController.verifyOtpController, hashPassword, authController.resetPassword);
 
 module.exports = authRouter;

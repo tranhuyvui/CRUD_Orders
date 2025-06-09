@@ -7,13 +7,13 @@ const { authenticateToken } = require('../middlewares/authMiddleware');
 const {
     validatorOrderID,
     validatorAddOrder,
-    validatorUpdateOrder
-} = require('../middlewares/orderValidator');
+    validatorUpdateOrder,
+} = require('../middlewares/validatorOrder');
 
 router.get('/',authenticateToken,  orderControllers.getAllOrders);
+router.post('/', authenticateToken, validatorAddOrder, handleValidation, orderControllers.addOrders);
+router.put('/:OrderID', authenticateToken, validatorUpdateOrder, handleValidation, orderControllers.updateOrder);
 router.get('/:OrderID', authenticateToken, validatorOrderID, handleValidation, orderControllers.getOrderByOrderID);
-router.post('/', authenticateToken, orderControllers.addOrders);
-router.put('/:OrderID', authenticateToken, orderControllers.updateOrder);
 router.delete('/:OrderID', authenticateToken, validatorOrderID, handleValidation, orderControllers.deleteOrder);
  
 module.exports = router;

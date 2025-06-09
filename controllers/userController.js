@@ -2,12 +2,16 @@ const sql = require('../config/db');
 
 async function getAllUser(req, res) {
     try {
-        if (req.user.Role !== "Admin") {
-            return res.status(403).send("Bạn không có quyền truy cập tất cả người dùng!");
+        const UserID = req.user.UserID;
+        if (req.user.Role === "User") {
+            const checkUser = await sql.query`SELECT * FROM Users WHERE UserID = ${UserID}`;
+            if (checkUser.recordset.length === 0) {
+                return res.status(404).send("Không tìm thấy người dùng");
+            }
+            return res.send(checkUser.recordset[0]);
         }
-
         const result = await sql.query`SELECT * FROM Users`;
-        res.send(result.recordset);
+        return res.send(result.recordset);
     } catch (err) {
         res.status(500).send("Lỗi: " + err.message);
     }
@@ -34,11 +38,10 @@ async function getUserById(req, res) {
 
 async function deleteUser(req, res) {
     try {
-        const UserID = parseInt(req.params.UserID);
-        if (req.user.Role !== "Admin" && req.user.UserID !== UserID) {
-            return res.status(403).send("Bạn không có quyền xóa người dùng này!");
+        const UserID = req.user.Role === "User" ? req.user.UserID : req.params.UserID;
+        if (req.user.Role === "Admin" && !UserID) {
+            return res.status(404).send("Không có UserID người dùng nào để xóa");
         }
-
         await sql.query`DELETE FROM Orders WHERE UserID = ${UserID}`;
         await sql.query`DELETE FROM Auth WHERE UserID = ${UserID}`;
         await sql.query`DELETE FROM Users WHERE UserID = ${UserID}`;
@@ -47,19 +50,47 @@ async function deleteUser(req, res) {
         res.status(500).send("Lỗi: " + err.message);
     }
 }
-
 async function UpdateUser(req, res) {
     try {
-        const UserID = parseInt(req.params.UserID);
-        if (req.user.UserID !== UserID && req.user.Role !== "Admin") {
-            return res.status(403).send("Bạn không có quyền sửa người dùng này!");
+        const isAdmin = req.user.Role === "Admin";
+        const UserID = isAdmin ? (req.params.UserID) : req.user.UserID;
+        if (isAdmin && !UserID) {
+            return res.status(400).send("Thiếu hoặc sai định dạng UserID");
         }
 
-        const { FullName, Email } = req.body;
-        await sql.query`UPDATE Users SET FullName = ${FullName}, Email = ${Email} WHERE UserID = ${UserID}`;
-        res.send("Cập nhật thành công");
+        const { FullName, Email, Username, Phone, Address } = req.body;
+
+        if (!FullName && !Email && !Username && !Phone && !Address) {
+            return res.status(400).send("Không có dữ liệu để cập nhật");
+        }
+
+        const curUserResult = await sql.query`SELECT * FROM Users WHERE UserID = ${UserID}`;
+        const curUser = curUserResult.recordset[0];
+
+        if (!curUser) {
+            return res.status(404).send("Không tìm thấy người dùng");
+        }
+
+        await sql.query`
+            UPDATE Users 
+            SET FullName = ${FullName || curUser.FullName},
+                Email = ${Email || curUser.Email},
+                Phone = ${Phone || curUser.Phone},
+                Address = ${Address || curUser.Address}
+            WHERE UserID = ${UserID}
+        `;
+
+        if (Username) {
+            await sql.query`
+                UPDATE Auth
+                SET Username = ${Username}
+                WHERE UserID = ${UserID}
+            `;
+        }
+
+        res.json({ message: "Cập nhật thành công" });
     } catch (err) {
-        res.status(500).send("Lỗi: " + err.message);
+        res.status(500).send("Lỗi: " + err.message);    
     }
 }
 
