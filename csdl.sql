@@ -54,7 +54,7 @@ CREATE TABLE Orders (
     OrderDate DATETIME DEFAULT GETDATE(),
     ShippingAddress NVARCHAR(255) NULL,   -- Địa chỉ giao hàng riêng cho đơn này
     Phone NVARCHAR(20) NULL,               -- Số điện thoại liên hệ đơn này
-    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending',  -- Trạng thái đơn: Pending, Confirmed, Shipped, Delivered
+    Status NVARCHAR(20) NOT NULL DEFAULT 'Pending',  -- Trạng thái đơn: Pending, Confirmed, Shipped, Cancelled
     FOREIGN KEY (UserID) REFERENCES Users(UserID),
     FOREIGN KEY (ProductID) REFERENCES Products(ProductID)
 );
@@ -81,3 +81,5 @@ SELECT * FROM Products;
 SELECT * FROM Orders;
 SELECT * FROM Auth;
 SELECT * FROM OtpCodes;
+
+

@@ -34,7 +34,7 @@ async function loginService({Username, Password}) {
         Role: user.Role
     };
 }
-async function registerService({Username, FullName, Email, PasswordHash, Role = "User" }, currentUser){
+async function registerService({Username, FullName, Email, ShippingAddress, Phone, PasswordHash, Role = "User" }, currentUser){
     
     
     if (currentUser && currentUser.Role !== "Admin") {
@@ -47,9 +47,9 @@ async function registerService({Username, FullName, Email, PasswordHash, Role = 
     }
 
     const result = await sql.query`
-        INSERT INTO Users (FullName, Email, Role)
+        INSERT INTO Users (FullName, Email, Address, Phone, Role)
         OUTPUT INSERTED.UserID
-        VALUES (${FullName}, ${Email}, ${Role})
+        VALUES (${FullName}, ${Email}, ${ShippingAddress}, ${Phone}, ${Role})
     `;
     const UserID = result.recordset[0].UserID;
     await sql.query`

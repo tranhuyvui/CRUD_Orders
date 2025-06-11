@@ -58,7 +58,7 @@ async function UpdateUser(req, res) {
             return res.status(400).send("Thiếu hoặc sai định dạng UserID");
         }
 
-        const { FullName, Email, Username, Phone, Address } = req.body;
+        const { FullName, Email, Username, Phone, ShippingAddress } = req.body;
 
         if (!FullName && !Email && !Username && !Phone && !Address) {
             return res.status(400).send("Không có dữ liệu để cập nhật");
@@ -76,7 +76,7 @@ async function UpdateUser(req, res) {
             SET FullName = ${FullName || curUser.FullName},
                 Email = ${Email || curUser.Email},
                 Phone = ${Phone || curUser.Phone},
-                Address = ${Address || curUser.Address}
+                Address = ${ShippingAddress || curUser.Address}
             WHERE UserID = ${UserID}
         `;
 

@@ -21,7 +21,8 @@ async function getOrderByOrderID(req, res) {
             return res.status(403).json({ message: "Bạn không có quyền truy cập đơn hàng này!" });
         }
         const resultUser = await sql.query`SELECT FullName, Email FROM Users WHERE UserID = ${order.UserID}`;
-        
+        let statusMessage = getStatusOrder(order.Status);
+        order.Status = statusMessage;
         res.send({
             user: resultUser.recordset[0],
             orders: [order]
@@ -169,7 +170,7 @@ async function updateOrder(req, res) {
             });
         }
         
-        if (order.status !== "Pending") {
+        if (order.Status !== "Pending") {
             let statusMessage = getStatusOrder(order.Status);
             return res.status(403).json({ message: `không thể sửa đơn hàng! ${statusMessage}` })
         }
@@ -234,18 +235,18 @@ async function updateOrder(req, res) {
 }
 function getStatusOrder(status) {
     switch (status) {
-        case 'Pending': return "Đơn hàng đang chờ xác nhận.";
-        case 'Confirmed': return "Đơn hàng đã được xác nhận.";
-        case 'Shipped': return "Đơn hàng đang được vận chuyển.";
-        case 'Delivered': return "Đơn hàng đã giao thành công.";
-        default: return "Trạng thái đơn hàng không hợp lệ.";
+        case 'Pending': return "Đơn hàng đang chờ xác nhận";
+        case 'Confirmed': return "Đơn hàng đã được xác nhận";
+        case 'Shipped': return "Đơn hàng đang được vận chuyển";
+        case 'Delivered': return "Đơn hàng đã giao thành công";
+        case 'Cancelled': return "Đơn hàng đã bị hủy";
+        default: return "Trạng thái đơn hàng không hợp lệ";
     }
 }
 
 async function deleteOrder(req, res) {
     try {
         const OrderID = req.params.OrderID;
-
         const checkOrder = await sql.query`SELECT * FROM Orders WHERE OrderID = ${OrderID}`;
         if (checkOrder.recordset.length === 0) {
             return res.status(404).send("Không tìm thấy đơn hàng");
@@ -263,7 +264,11 @@ async function deleteOrder(req, res) {
             return res.status(403).json({ message: `Bạn không thể xóa đơn hàng! ${statusMessage}` })
         }
 
-        await sql.query`DELETE FROM Orders WHERE OrderID = ${OrderID}`;
+        // await sql.query`DELETE FROM Orders WHERE OrderID = ${OrderID}`;
+        await sql.query`UPDATE Orders 
+            SET Status = ${"Cancelled"}
+            WHERE OrderID = ${OrderID}`
+            
         await sql.query`
             UPDATE Products
             SET Stock = Stock + ${order.Quantity}
@@ -278,11 +283,33 @@ async function deleteOrder(req, res) {
         res.status(500).send("Lỗii: " + err.message);
     }
 }
-
+async function confirmOrderByID(req, res) {
+    try {
+        if (req.user.Role !== "Admin") {
+            return res.status(500).json({ message: "Bạn không có quyền sửa đơn hàng!" });
+        }
+        const OrderID = req.params.OrderID;
+        const checkOrder = await sql.query`SELECT * FROM Orders WHERE OrderID = ${OrderID}`
+        if (checkOrder.recordset.length === 0) {
+            return res.status(403).json({ message: "Không tìm thấy đơn hàng!" });
+        }
+        if (checkOrder.recordset[0].Status !== "Pending") {
+            let statusMessage = getStatusOrder(checkOrder.Status);
+            return res.json({ message: statusMessage });
+        }
+        await sql.query`UPDATE Orders
+            SET Status = ${"Confirmed"}    
+            WHERE OrderID = ${OrderID}
+        `
+    } catch (err) {
+        res.status(500).send("Lỗi: " + err.message)
+    }
+}
 module.exports = {
     getOrderByOrderID,
     getAllOrders,
     addOrders,
     updateOrder,
-    deleteOrder
+    deleteOrder,
+    confirmOrderByID
 };
