@@ -298,9 +298,20 @@ async function confirmOrderByID(req, res) {
             return res.json({ message: statusMessage });
         }
         await sql.query`UPDATE Orders
+
             SET Status = ${"Confirmed"}    
             WHERE OrderID = ${OrderID}
         `
+        //
+        const result = await sql.query`
+            SELECT * FROM Orders WHERE OrderID = ${OrderID}`;
+
+        const confirmedOrder = result.recordset[0];
+
+        res.status(200).json({ 
+            message: "Xác nhận đơn hàng thành công!", 
+            order: confirmedOrder 
+        });
     } catch (err) {
         res.status(500).send("Lỗi: " + err.message)
     }
