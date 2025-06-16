@@ -1,3 +1,4 @@
+const e = require('express');
 const sql = require('../config/db');
 
 async function getOrderByOrderID(req, res) {
@@ -20,12 +21,28 @@ async function getOrderByOrderID(req, res) {
         if (req.user.Role !== 'Admin' && req.user.UserID !== order.UserID) {
             return res.status(403).json({ message: "Bạn không có quyền truy cập đơn hàng này!" });
         }
-        const resultUser = await sql.query`SELECT FullName, Email FROM Users WHERE UserID = ${order.UserID}`;
-        let statusMessage = getStatusOrder(order.Status);
-        order.Status = statusMessage;
-        res.send({
-            user: resultUser.recordset[0],
-            orders: [order]
+        const userInfo = await sql.query`
+            SELECT UserID, FullName, Email, Address, Phone 
+            FROM Users
+            WHERE
+                UserID = ${order.UserID}`;
+
+        const formattedOrder = {
+            OrderID: order.OrderID,
+            OrderDate: order.OrderDate,
+            Status: getStatusOrder(order.Status),
+            Product: {
+                ProductID: order.ProductID,
+                ProductName: order.ProductName,
+                Quantity: order.Quantity
+            },
+            ShippingAddress: order.ShippingAddress,
+            Phone: order.Phone
+        };
+        const resultUser = userInfo.recordset[0];
+        return res.json({
+            user: resultUser,
+            order: formattedOrder
         });
     } catch (err) {
         res.status(500).send("Lỗiiii: " + err.message);
@@ -45,7 +62,26 @@ async function getAllOrders(req, res) {
             if (result.recordset.length === 0) {
                 return res.status(403).json({ message: "Hiện không có đơn hàng nào!" });
             }
-            return res.send(result.recordset);
+            const userInfo = result.recordset.map(element => ({
+                OrderID: element.OrderID,
+                OrderDate: element.OrderDate,
+                Status: getStatusOrder(element.Status),
+                user: {
+                    userID: element.UserID,
+                    FullName: element.FullName,
+                    Email: element.Email,
+                    Phone: element.Phone,
+                    ShippingAddress: element.Address
+                },
+                Product: {
+                    ProductID: element.ProductID,
+                    ProductName: element.ProductName,
+                    Quantity: element.Quantity
+                }
+            }))
+
+            return res.send(userInfo);
+            
         } else {
             const userID = req.user.UserID;
 
@@ -60,20 +96,28 @@ async function getAllOrders(req, res) {
                 return res.status(200).send({ message: "Bạn chưa có đơn hàng nào" });
             }
 
-            const userInfoResult = await sql.query`
-                SELECT FullName, Email
+            const userInfo = await sql.query`
+                SELECT  UserID, FullName, Email, Address, Phone
                 FROM Users
                 WHERE UserID = ${userID}
             `;
 
-            const userInfo = userInfoResult.recordset[0];
-
-            return res.send({
-                User: {
-                    FullName: userInfo.FullName,
-                    Email: userInfo.Email
+            const orderUser = ordersResult.recordset.map(element => ({
+                OrderID: element.OrderID,
+                OrderDate: element.OrderDate,
+                Status: getStatusOrder(element.Status),
+                Product: {
+                    ProductID: element.ProductID,
+                    ProductName: element.ProductName,
+                    Quantity: element.Quantity
                 },
-                Orders: ordersResult.recordset
+                ShippingAddress: element.ShippingAddress,
+                Phone: element.Phone
+            }))
+            const userInfoResult = userInfo.recordset[0];
+            return res.json({
+                user: userInfoResult,
+                orders: orderUser
             });
         }
     } catch (err) {
@@ -142,11 +186,34 @@ async function addOrders(req, res) {
             WHERE o.UserID = ${UserID}
             ORDER BY OrderID DESC
         `;
+        const resultOrder = newOrder.recordset.map(element => ({
+            orderID: element.OrderID, 
+            OrderDate: element.OrderDate,
+            Status: getStatusOrder(element.Status),
+            ShippingAddress: element.ShippingAddress,
+            Phone: element.Phone,
 
-        res.status(201).json({
-            message: "Thêm thành công đơn hàng!",
-            order: newOrder.recordset[0]
-        });
+            product: {
+                productID: element.ProductID,
+                ProductName: element.ProductName,
+                Quantity: element.Quantity
+            }
+        }))
+        if (req.user.Role === "Admin") {
+            const userInfo = await sql.query`SELECT UserID, FullName, Email FROM Users WHERE UserID = ${UserID}`
+            const userResult = userInfo.recordset[0];
+            res.status(201).json({
+                message: "Thêm thành công đơn hàng!!!",
+                user: userResult,
+                order: resultOrder
+            });
+        }
+        else {
+            res.status(201).json({
+                message: "Thêm thành công đơn hàng!",
+                order: resultOrder
+            });
+        }
 
     } catch (err) {
         res.status(500).send("Lỗi: " + err.message);
@@ -219,15 +286,28 @@ async function updateOrder(req, res) {
         `;
 
         const updatedOrder = await sql.query`
-            SELECT o.*, p.ProductID
+            SELECT o.*, p.ProductName
             FROM Orders o
             JOIN Products p ON o.ProductID = p.ProductID
             WHERE o.OrderID = ${orderID}
         `;
+        const element = updatedOrder.recordset[0];
+        const resultOrder = {
+            OrderID: element.OrderID,
+            OrderDate: element.OrderDate,
+            Status: getStatusOrder(element.Status),
+            Product: {
+                ProductID: element.ProductID,
+                ProductName: element.ProductName,
+                Quantity: element.Quantity
+            },
+            ShippingAddress: element.ShippingAddress,
+            Phone: element.Phone
+        };
 
         res.send({
             message: "Cập nhật đơn hàng thành công!",
-            order: updatedOrder.recordset[0]
+            order: resultOrder
         });
     } catch (err) {
         res.status(500).send("Lỗi: " + err.message);
@@ -247,7 +327,12 @@ function getStatusOrder(status) {
 async function deleteOrder(req, res) {
     try {
         const OrderID = req.params.OrderID;
-        const checkOrder = await sql.query`SELECT * FROM Orders WHERE OrderID = ${OrderID}`;
+        const checkOrder = await sql.query`
+            SELECT o.*, p.ProductName
+            FROM Orders o
+            JOIN Products p ON o.ProductID = p.ProductID
+            WHERE OrderID = ${OrderID}
+            `;
         if (checkOrder.recordset.length === 0) {
             return res.status(404).send("Không tìm thấy đơn hàng");
         }
@@ -274,9 +359,22 @@ async function deleteOrder(req, res) {
             SET Stock = Stock + ${order.Quantity}
             WHERE ProductID = ${order.ProductID}
             `;
+        
+        const resultOrder = {
+            OrderID: order.OrderID,
+            OrderDate: order.OrderDate,
+            Status: getStatusOrder("Cancelled"),
+            Product: {
+                ProductID: order.ProductID,
+                ProductName: order.ProductName,
+                Quantity: order.Quantity
+            },
+            ShippingAddress: order.ShippingAddress,
+            Phone: order.Phone
+        };
         res.json({
             message: "Xóa thành công!",
-            Order: order
+            Order: resultOrder
         })
 
     } catch (err) {
@@ -289,28 +387,41 @@ async function confirmOrderByID(req, res) {
             return res.status(500).json({ message: "Bạn không có quyền sửa đơn hàng!" });
         }
         const OrderID = req.params.OrderID;
-        const checkOrder = await sql.query`SELECT * FROM Orders WHERE OrderID = ${OrderID}`
+        const checkOrder = await sql.query`
+            SELECT * FROM Orders WHERE OrderID = ${OrderID}`;
         if (checkOrder.recordset.length === 0) {
             return res.status(403).json({ message: "Không tìm thấy đơn hàng!" });
         }
         if (checkOrder.recordset[0].Status !== "Pending") {
-            let statusMessage = getStatusOrder(checkOrder.Status);
-            return res.json({ message: statusMessage });
+            let statusMessage = getStatusOrder(checkOrder.recordset[0].Status);
+            return res.json({ message: statusMessage + " trước đó" });
         }
         await sql.query`UPDATE Orders
-
             SET Status = ${"Confirmed"}    
             WHERE OrderID = ${OrderID}
         `
         //
         const result = await sql.query`
-            SELECT * FROM Orders WHERE OrderID = ${OrderID}`;
-
-        const confirmedOrder = result.recordset[0];
-
+            SELECT o.*, p.ProductName
+            FROM Orders o
+            JOIN Products p ON p.ProductID = o.ProductID
+            WHERE o.OrderID = ${OrderID}`
+        const order = result.recordset[0];
+        const resultOrder = {
+            OrderID: order.OrderID,
+            OrderDate: order.OrderDate,
+            Status: getStatusOrder(order.Status),
+            Product: {
+                ProductID: order.ProductID,
+                ProductName: order.ProductName,
+                Quantity: order.Quantity
+            },
+            ShippingAddress: order.ShippingAddress,
+            Phone: order.Phone
+        };
         res.status(200).json({ 
             message: "Xác nhận đơn hàng thành công!", 
-            order: confirmedOrder 
+            order: resultOrder
         });
     } catch (err) {
         res.status(500).send("Lỗi: " + err.message)
